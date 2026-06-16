@@ -7,9 +7,7 @@ const client = new OAuth2Client(
 );
 
 exports.googleLogin = async (req, res) => {
-
     try {
-
         const { idToken } = req.body;
 
         const ticket = await client.verifyIdToken({
@@ -24,43 +22,48 @@ exports.googleLogin = async (req, res) => {
         const name = payload.name;
         const photo = payload.picture;
 
-        await pool.query(
+        // 1. Gunakan ON CONFLICT DO UPDATE dan tambahkan RETURNING *
+        const result = await pool.query(
             `
-            INSERT INTO users(
-                id,
-                email,
-                name,
-                photo_url
-            )
-            VALUES($1,$2,$3,$4)
-            ON CONFLICT(email)
-            DO NOTHING
+            INSERT INTO users(id, email, name, photo_url)
+            VALUES($1, $2, $3, $4)
+            ON CONFLICT(email) 
+            DO UPDATE SET 
+                name = EXCLUDED.name,
+                photo_url = EXCLUDED.photo_url
+            RETURNING *
             `,
-            [userId,email,name,photo]
+            [userId, email, name, photo]
         );
 
+        // 2. Ambil data user yang sebenarnya dari hasil query database
+        const dbUser = result.rows[0];
+
+        // 3. Gunakan ID asli dari database untuk JWT payload (lebih aman)
         const token = jwt.sign(
             {
-                id:userId,
-                email
+                id: dbUser.id,
+                email: dbUser.email
             },
             process.env.JWT_SECRET,
             {
-                expiresIn:"7d"
+                expiresIn: "7d"
             }
         );
 
+        // 4. Kembalikan data user yang sesuai dengan database
         res.json({
             token,
-            user:{
-                id:userId,
-                email,
-                name,
-                photo
+            user: {
+                id: dbUser.id,
+                email: dbUser.email,
+                name: dbUser.name,
+                photo: dbUser.photo_url 
             }
         });
 
-    } catch(error){
-        res.status(500).json(error);
+    } catch (error) {
+        console.error("Google Login Error:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };

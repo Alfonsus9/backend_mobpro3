@@ -16,7 +16,6 @@ const reportController =
  */
 router.get(
     "/",
-    authMiddleware,
     reportController.getAllReports
 );
 

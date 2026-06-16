@@ -4,7 +4,7 @@ const cors = require("cors");
 const authRoutes =
     require("./routes/authRoutes");
 
-const reportRoutes =
+const {} =
     require("./routes/reportRoutes");
 
 const app = express();
@@ -12,7 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
+app.get("/test", (req, res) => {
     res.status(200).json({
         success: true,
         message: "API Running",
