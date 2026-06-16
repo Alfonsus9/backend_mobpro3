@@ -12,7 +12,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-
+app.get("/", (req, res) => {
+    res.status(200).json({
+        success: true,
+        message: "API Running",
+        service: "Backend Mobpro 3",
+        timestamp: new Date().toISOString()
+    });
+});
 
 app.use("/auth", authRoutes);
 app.use("/reports", reportRoutes);
