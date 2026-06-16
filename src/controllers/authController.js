@@ -33,14 +33,16 @@ exports.googleLogin = async (req, res) => {
         // 1. Gunakan ON CONFLICT DO UPDATE dan tambahkan RETURNING *
         const result = await pool.query(
             `
-            INSERT INTO users(id, email, name, photo_url)
-            VALUES($1, $2, $3, $4)
-            ON CONFLICT(email) 
-            DO UPDATE SET 
-                name = EXCLUDED.name,
-                photo_url = EXCLUDED.photo_url
-            RETURNING *
-            `,
+    INSERT INTO users (google_id, email, name, photo_url)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (email)
+    DO UPDATE SET
+        name = EXCLUDED.name,
+        photo_url = EXCLUDED.photo_url,
+        google_id = EXCLUDED.google_id,
+        updated_at = NOW()
+    RETURNING *
+    `,
             [userId, email, name, photo]
         );
 
