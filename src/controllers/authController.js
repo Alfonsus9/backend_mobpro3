@@ -7,15 +7,21 @@ const client = new OAuth2Client(
 );
 
 exports.googleLogin = async (req, res) => {
+    
     try {
+        console.log("🔥 HIT /auth/google");
         const { idToken } = req.body;
+        console.log("📩 idToken:", idToken);
+        console.log("🔑 GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
 
         const ticket = await client.verifyIdToken({
             idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
 
+         console.log("✅ VERIFY SUCCESS");
         const payload = ticket.getPayload();
+        console.log("👤 PAYLOAD:", payload);
 
         const userId = payload.sub;
         const email = payload.email;
@@ -36,6 +42,7 @@ exports.googleLogin = async (req, res) => {
             [userId, email, name, photo]
         );
 
+        console.log("💾 DB RESULT:", result.rows[0]);
         // 2. Ambil data user yang sebenarnya dari hasil query database
         const dbUser = result.rows[0];
 
@@ -50,6 +57,8 @@ exports.googleLogin = async (req, res) => {
                 expiresIn: "7d"
             }
         );
+
+        console.log("🎟 JWT CREATED");
 
         // 4. Kembalikan data user yang sesuai dengan database
         res.json({
