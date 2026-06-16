@@ -12,7 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.get("/test", (req, res) => {
+app.get("/coba", (req, res) => {
     res.status(200).json({
         success: true,
         message: "API Running",
