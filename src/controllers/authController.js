@@ -7,7 +7,9 @@ const client = new OAuth2Client(
 );
 
 exports.googleLogin = async (req, res) => {
-    
+    console.log("🔥 HIT /auth/google");
+    console.log("BODY:", req.body);
+    console.log("ENV GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
     try {
         console.log("🔥 HIT /auth/google");
         const { idToken } = req.body;
@@ -19,7 +21,7 @@ exports.googleLogin = async (req, res) => {
             audience: process.env.GOOGLE_CLIENT_ID,
         });
 
-         console.log("✅ VERIFY SUCCESS");
+        console.log("✅ VERIFY SUCCESS");
         const payload = ticket.getPayload();
         console.log("👤 PAYLOAD:", payload);
 
@@ -67,7 +69,7 @@ exports.googleLogin = async (req, res) => {
                 id: dbUser.id,
                 email: dbUser.email,
                 name: dbUser.name,
-                photo: dbUser.photo_url 
+                photo: dbUser.photo_url
             }
         });
 
