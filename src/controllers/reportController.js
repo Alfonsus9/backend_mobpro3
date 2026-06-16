@@ -1,7 +1,35 @@
 const pool = require("../config/db");
 const { v4: uuidv4 } = require("uuid");
+const cloudinary = require("../config/cloudinary");
+const streamifier = require("streamifier");
+
+const uploadToCloudinary = (buffer) => {
+    return new Promise((resolve, reject) => {
+
+        const stream = cloudinary.uploader.upload_stream(
+            {
+                folder: "lost-found"
+            },
+            (error, result) => {
+
+                if (result) {
+                    resolve(result);
+                } else {
+                    reject(error);
+                }
+
+            }
+        );
+
+        streamifier
+            .createReadStream(buffer)
+            .pipe(stream);
+
+    });
+};
 
 exports.createReport = async (req, res) => {
+
     try {
 
         const {
@@ -9,15 +37,40 @@ exports.createReport = async (req, res) => {
             status,
             lokasi,
             deskripsi,
-            foto,
             tanggal_kejadian
         } = req.body;
 
-        const id = uuidv4();
+        // Validasi sederhana
+        if (
+            !nama_barang ||
+            !status ||
+            !lokasi ||
+            !tanggal_kejadian
+        ) {
+            return res.status(400).json({
+                message: "Field wajib belum lengkap"
+            });
+        }
+
+        let fotoUrl = null;
+
+        // Upload foto ke Cloudinary jika ada
+        if (req.file) {
+
+            const uploadResult =
+                await uploadToCloudinary(
+                    req.file.buffer
+                );
+
+            fotoUrl =
+                uploadResult.secure_url;
+        }
+
+        const reportId = uuidv4();
 
         const result = await pool.query(
             `
-            INSERT INTO reports(
+            INSERT INTO reports (
                 id,
                 user_id,
                 nama_barang,
@@ -27,27 +80,38 @@ exports.createReport = async (req, res) => {
                 foto,
                 tanggal_kejadian
             )
-            VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+            VALUES (
+                $1,$2,$3,$4,$5,$6,$7,$8
+            )
             RETURNING *
             `,
             [
-                id,
+                reportId,
                 req.user.id,
                 nama_barang,
                 status,
                 lokasi,
                 deskripsi,
-                foto,
+                fotoUrl,
                 tanggal_kejadian
             ]
         );
 
-        res.status(201).json(result.rows[0]);
+        return res.status(201).json({
+            success: true,
+            message: "Laporan berhasil dibuat",
+            data: null
+        });
 
     } catch (error) {
-        res.status(500).json({
+
+        console.error(error);
+
+        return res.status(500).json({
+            success: false,
             message: error.message
         });
+
     }
 };
 
@@ -66,12 +130,16 @@ exports.getAllReports = async (req, res) => {
             ORDER BY created_at DESC
         `);
 
-        res.json(result.rows);
+        return res.status(200).json({
+            success: true,
+            message: "data berhasil diambil",
+            data: result.rows
+        });
 
-    } catch(error) {
+    } catch (error) {
 
         res.status(500).json({
-            message:error.message
+            message: error.message
         });
 
     }
@@ -91,12 +159,16 @@ exports.getMyReports = async (req, res) => {
             [req.user.id]
         );
 
-        res.json(result.rows);
+        return res.status(200).json({
+            success: true,
+            message: "data berhasil diambil",
+            data: result.rows
+        });
 
-    } catch(error) {
+    } catch (error) {
 
         res.status(500).json({
-            message:error.message
+            message: error.message
         });
 
     }
@@ -113,9 +185,43 @@ exports.updateReport = async (req, res) => {
             status,
             lokasi,
             deskripsi,
-            foto,
             tanggal_kejadian
         } = req.body;
+
+        // Ambil laporan lama
+        const oldReport = await pool.query(
+            `
+            SELECT *
+            FROM reports
+            WHERE id = $1
+            AND user_id = $2
+            `,
+            [
+                id,
+                req.user.id
+            ]
+        );
+
+        if (oldReport.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Laporan tidak ditemukan"
+            });
+        }
+
+        let fotoUrl = oldReport.rows[0].foto;
+
+        // Jika upload foto baru
+        if (req.file) {
+
+            const uploadResult =
+                await uploadToCloudinary(
+                    req.file.buffer
+                );
+
+            fotoUrl =
+                uploadResult.secure_url;
+        }
 
         const result = await pool.query(
             `
@@ -137,27 +243,26 @@ exports.updateReport = async (req, res) => {
                 status,
                 lokasi,
                 deskripsi,
-                foto,
+                fotoUrl,
                 tanggal_kejadian,
                 id,
                 req.user.id
             ]
         );
 
-        if(result.rows.length === 0){
+        return res.json({
+            success: true,
+            message: "Laporan berhasil diperbarui",
+            data: null
+        });
 
-            return res.status(404).json({
-                message:"Data tidak ditemukan"
-            });
+    } catch (error) {
 
-        }
+        console.error(error);
 
-        res.json(result.rows[0]);
-
-    } catch(error){
-
-        res.status(500).json({
-            message:error.message
+        return res.status(500).json({
+            success: false,
+            message: error.message
         });
 
     }
@@ -182,22 +287,22 @@ exports.deleteReport = async (req, res) => {
             ]
         );
 
-        if(result.rows.length === 0){
+        if (result.rows.length === 0) {
 
             return res.status(404).json({
-                message:"Data tidak ditemukan"
+                message: "Data tidak ditemukan"
             });
 
         }
 
         res.json({
-            message:"Berhasil dihapus"
+            message: "Berhasil dihapus"
         });
 
-    } catch(error){
+    } catch (error) {
 
         res.status(500).json({
-            message:error.message
+            message: error.message
         });
 
     }
